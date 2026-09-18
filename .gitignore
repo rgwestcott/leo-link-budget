@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Test cache
+.pytest_cache/
+
+# Secrets
+.env
+
+# Sweep output (regenerate with run.py --out plots/)
+plots/
