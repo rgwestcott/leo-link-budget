@@ -1,0 +1,19 @@
+name: X-band payload downlink, 500 km, 10 deg elevation
+altitude_km: 500.0
+elevation_deg: 10.0
+freq_mhz: 8200.0
+p_tx_dbw: 7.0            # 5 W
+g_tx_dbi: 6.0            # medium-gain payload antenna
+l_tx_db: 1.5
+other_losses_db: 3.0     # rain 1.0 + atmosphere 0.5 + polarization 0.5 + pointing 1.0
+rx_dish_diameter_m: 3.0
+rx_efficiency: 0.6
+t_ant_k: 60.0
+lna_nf_db: 1.5
+g_over_t_db_per_k: null
+bit_rate_bps: 50.0e6
+bits_per_symbol: 2
+code_rate: 0.75
+required_ebn0_db: 2.3    # DVB-S2 QPSK 3/4: Es/N0 4.03 dB → Eb/N0 ≈ 2.27 dB
+implementation_loss_db: 1.5
+target_margin_db: 3.0

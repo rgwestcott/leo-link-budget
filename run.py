@@ -69,6 +69,15 @@ _FORMATS = {
     "rate": "{:.3g}",
 }
 
+# Deltas carry an explicit sign, so a column of them reads as "what the second
+# scenario costs or buys" rather than as a second set of absolute values.
+_DELTA_FORMATS = {
+    "db": "{:+.2f}",
+    "km": "{:+.1f}",
+    "kelvin": "{:+.1f}",
+    "rate": "{:+.3g}",
+}
+
 # Printed where a published G/T means the dish gain and system temperature were
 # never computed, so that a blank is never mistaken for a zero.
 _NOT_APPLICABLE = "n/a"
@@ -123,6 +132,78 @@ def format_ledger(ledger, name, target_margin_db):
     return "\n".join(lines)
 
 
+def format_delta(base_value, other_value, kind):
+    """Round the difference between two ledger values for display.
+
+    Args:
+        base_value:  the first scenario's value, or None where it does not apply.
+        other_value: the second scenario's value, or None.
+        kind:        which rounding rule to use.
+    Returns:
+        the signed difference as text [str]; "n/a" if either side is absent,
+        because a published G/T leaves no gain or temperature to subtract.
+    Reference:
+        format_delta(163.88, 175.31, "db") == "+11.43"
+    """
+    if base_value is None or other_value is None:
+        return _NOT_APPLICABLE
+    return _DELTA_FORMATS[kind].format(other_value - base_value)
+
+
+def format_comparison(base_ledger, base_name, other_ledger, other_name):
+    """Render two ledgers side by side with a delta column.
+
+    The delta is other minus base, so a positive number is what the second
+    scenario adds. Reading a budget this way is how a design trade is actually
+    judged: the X-band case pays 11.43 dB more path loss than S-band at the same
+    range, and the table shows both where that is spent and what buys it back.
+
+    Args:
+        base_ledger: the dict returned by compute_ledger for the base scenario.
+        base_name:   the base scenario's name [str].
+        other_ledger: the same for the scenario being compared against it.
+        other_name:  the other scenario's name [str].
+    Returns:
+        the complete comparison report [str], without a trailing newline.
+    """
+    rows = []
+    for group_index, group in enumerate(LEDGER_DISPLAY):
+        for key, label, unit, kind in group:
+            rows.append((group_index, label,
+                         format_value(base_ledger[key], kind),
+                         format_value(other_ledger[key], kind),
+                         format_delta(base_ledger[key], other_ledger[key], kind),
+                         unit))
+
+    # Column headings share the width calculation, so a long delta never pushes
+    # its heading out of alignment with the numbers beneath it.
+    label_width = max([len(row[1]) for row in rows] + [len("")])
+    base_width = max([len(row[2]) for row in rows] + [len("base")])
+    other_width = max([len(row[3]) for row in rows] + [len("other")])
+    delta_width = max([len(row[4]) for row in rows] + [len("delta")])
+
+    lines = [
+        f"base   {base_name}",
+        f"other  {other_name}",
+        "=" * max(len(base_name), len(other_name)) + "=======",
+        "",
+        f"  {'':<{label_width}}  {'base':>{base_width}}  {'other':>{other_width}}  "
+        f"{'delta':>{delta_width}}",
+    ]
+
+    previous_group = None
+    for group_index, label, base_value, other_value, delta, unit in rows:
+        if previous_group is not None and group_index != previous_group:
+            lines.append("")                              # same grouping as one ledger
+        previous_group = group_index
+        lines.append(f"  {label:<{label_width}}  {base_value:>{base_width}}  "
+                     f"{other_value:>{other_width}}  {delta:>{delta_width}}  {unit}")
+
+    lines.append("")
+    lines.append("delta is other minus base")
+    return "\n".join(lines)
+
+
 def build_parser():
     """Build the command-line parser.
 
@@ -141,6 +222,8 @@ def build_parser():
                         help="plot margin against information bit rate")
     parser.add_argument("--out", default="plots",
                         help="directory for rendered PNGs (default: plots)")
+    parser.add_argument("--compare", metavar="OTHER.yaml",
+                        help="print this scenario beside another, with a delta column")
     return parser
 
 
@@ -162,8 +245,17 @@ def main(argv=None):
         print(f"run.py: {error}", file=sys.stderr)
         return 2
 
-    print(format_ledger(lb.compute_ledger(scenario), scenario.name,
-                        scenario.target_margin_db))
+    if args.compare:
+        try:
+            other = load_scenario(args.compare)
+        except (FileNotFoundError, ValueError) as error:
+            print(f"run.py: {error}", file=sys.stderr)
+            return 2
+        print(format_comparison(lb.compute_ledger(scenario), scenario.name,
+                                lb.compute_ledger(other), other.name))
+    else:
+        print(format_ledger(lb.compute_ledger(scenario), scenario.name,
+                            scenario.target_margin_db))
 
     if args.sweep_elevation or args.sweep_rate:
         # Imported here rather than at module scope so that printing a ledger

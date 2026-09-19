@@ -52,7 +52,8 @@ leo-link-budget/
     ├── test_scenario.py
     ├── test_worked_example.py
     ├── test_sweeps.py
-    └── test_plots.py
+    ├── test_plots.py
+    └── test_comparison.py
 ```
 
 ## Commands
@@ -225,7 +226,7 @@ def slant_range_km(altitude_km, elevation_deg):
 - [x] 5 · Scenario dataclass, YAML loader, s_band_ttc.yaml + tests
 - [x] 6 · compute_ledger + run.py table + end-to-end test
 - [x] 7 · sweeps (elevation, bit rate, max-rate-vs-elevation) + plots + CLI flags + example PNG in README
-- [ ] 8 · x_band_payload.yaml + --compare
+- [x] 8 · x_band_payload.yaml + --compare
 - [ ] 9 · validation against a published reference + docs/validation.md + pinning test
 - [ ] 10 · README complete
 - [ ] later · elevation-dependent atmospheric loss · ITU-R P.618 rain · antenna pattern vs off-boresight · feed loss ahead of LNA · Doppler · bandwidth limits · interference
