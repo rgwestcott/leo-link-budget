@@ -11,6 +11,7 @@ scenario comparison.
 
 import argparse
 import sys
+from pathlib import Path
 
 import link_budget as lb
 from scenario import load_scenario
@@ -134,6 +135,12 @@ def build_parser():
     )
     parser.add_argument("scenario", help="path to a scenario YAML file, e.g. "
                                          "scenarios/s_band_ttc.yaml")
+    parser.add_argument("--sweep-elevation", action="store_true",
+                        help="plot margin and max bit rate against elevation angle")
+    parser.add_argument("--sweep-rate", action="store_true",
+                        help="plot margin against information bit rate")
+    parser.add_argument("--out", default="plots",
+                        help="directory for rendered PNGs (default: plots)")
     return parser
 
 
@@ -157,6 +164,30 @@ def main(argv=None):
 
     print(format_ledger(lb.compute_ledger(scenario), scenario.name,
                         scenario.target_margin_db))
+
+    if args.sweep_elevation or args.sweep_rate:
+        # Imported here rather than at module scope so that printing a ledger
+        # never pays for loading matplotlib, which dominates this tool's startup.
+        import plots
+        import sweeps
+
+        written = []
+        if args.sweep_elevation:
+            written.append(plots.plot_margin_vs_elevation(
+                sweeps.sweep_elevation(scenario), scenario,
+                Path(args.out) / "margin_vs_elevation.png"))
+            written.append(plots.plot_max_rate_vs_elevation(
+                sweeps.sweep_max_rate_vs_elevation(scenario), scenario,
+                Path(args.out) / "max_rate_vs_elevation.png"))
+        if args.sweep_rate:
+            written.append(plots.plot_margin_vs_bit_rate(
+                sweeps.sweep_bit_rate(scenario), scenario,
+                Path(args.out) / "margin_vs_bit_rate.png"))
+
+        print()
+        for path in written:
+            print(f"wrote {path}")
+
     return 0
 
 
