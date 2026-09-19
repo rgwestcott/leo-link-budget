@@ -14,3 +14,6 @@ venv/
 
 # Sweep output (regenerate with run.py --out plots/)
 plots/
+
+# Personal reference, not part of the repo
+cc_build_plan.md
