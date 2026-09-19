@@ -200,3 +200,112 @@ def fspl_db(distance_km, freq_mhz):
     distance_m = np.multiply(distance_km, 1000.0)         # km -> m, to match lambda
     lambda_m = wavelength_m(freq_mhz)                     # never a hardcoded constant
     return 20.0 * np.log10(4.0 * np.pi * distance_m / lambda_m)
+
+
+# ---------------------------------------------------------------------------
+# Antenna gain
+# ---------------------------------------------------------------------------
+def dish_gain_dbi(diameter_m, freq_mhz, efficiency=0.6):
+    """Boresight gain of a circular parabolic reflector.
+
+        G = 10 * log10(eta_a * (pi * D / lambda)^2)
+
+    The (pi*D/lambda)^2 term is the gain an ideal uniformly illuminated aperture
+    would have; the aperture efficiency eta_a discounts it for the real feed's
+    illumination taper, spillover, blockage and surface tolerance. Gain rises as
+    the square of both diameter and frequency, which is why the X-band case
+    recovers much of the extra path loss it pays.
+
+    Args:
+        diameter_m: physical reflector diameter [m]. Scalar or NumPy array.
+        freq_mhz:   carrier frequency [MHz]. Scalar or NumPy array.
+        efficiency: aperture efficiency eta_a [dimensionless, 0..1].
+                    0.6 is typical for a well-fed prime-focus dish.
+    Returns:
+        boresight gain [dBi], i.e. relative to an isotropic radiator.
+    Reference:
+        dish_gain_dbi(3.0, 2200.0, 0.6) ≈ 34.58 dBi
+    """
+    lambda_m = wavelength_m(freq_mhz)                     # never a hardcoded constant
+    aperture_ratio = np.pi * diameter_m / lambda_m        # circumference in wavelengths
+    return db(efficiency * aperture_ratio**2)             # ideal aperture gain, discounted
+
+
+# ---------------------------------------------------------------------------
+# Noise temperatures
+# ---------------------------------------------------------------------------
+def receiver_noise_temp_k(nf_db):
+    """Equivalent input noise temperature of a receiver, from its noise figure.
+
+        T_rx = T_0 * (10^(NF/10) - 1)
+
+    Noise is bookkept as a temperature because a resistor at physical temperature
+    T delivers a noise power spectral density of exactly k*T watts per hertz, so
+    any noise source — an amplifier, the sky, the ground — can be quoted as the
+    temperature of the resistor that would produce the same power, which makes
+    contributions from wildly different physical origins simply add. The LNA sits
+    at the antenna rather than at the far end of the feed because the Friis
+    cascade divides each later stage's noise contribution by the total gain ahead
+    of it, so once the first amplifier has supplied enough gain, everything
+    downstream — cable, filter, receiver — is suppressed to near irrelevance.
+
+    The -1 subtracts the noise of the T_0 source the noise figure is defined
+    against, leaving only the noise the receiver itself adds.
+
+    Args:
+        nf_db: receiver noise figure [dB], referenced to T_0 = 290 K.
+               Scalar or NumPy array.
+    Returns:
+        equivalent input noise temperature [K]. Zero for a noiseless (0 dB) receiver.
+    Reference:
+        receiver_noise_temp_k(1.0) ≈ 75.09 K; receiver_noise_temp_k(0.0) = 0.0 K
+    """
+    return T0_K * (lin(nf_db) - 1.0)                      # -1 removes the reference source
+
+
+def system_noise_temp_k(t_ant_k, t_rx_k):
+    """Total system noise temperature referred to the antenna terminals.
+
+        T_sys = T_ant + T_rx
+
+    The terms add directly because each is already the temperature of an
+    equivalent resistor at the same reference plane, and uncorrelated noise powers
+    sum. T_ant carries what the antenna sees (cosmic background, atmosphere, and
+    ground spillover into the sidelobes); T_rx carries what the receiver adds.
+
+    Args:
+        t_ant_k: antenna noise temperature [K], elevation- and site-dependent.
+                 Scalar or NumPy array.
+        t_rx_k:  receiver equivalent input noise temperature [K], from
+                 :func:`receiver_noise_temp_k`. Scalar or NumPy array.
+    Returns:
+        system noise temperature at the antenna terminals [K].
+    Reference:
+        system_noise_temp_k(75.0, 75.09) = 150.09 K
+    """
+    return np.add(t_ant_k, t_rx_k)                        # uncorrelated noise powers add
+
+
+# ---------------------------------------------------------------------------
+# Figure of merit
+# ---------------------------------------------------------------------------
+def g_over_t_db_per_k(g_rx_dbi, t_sys_k):
+    """Ground-station figure of merit: receive gain over system noise temperature.
+
+        G/T = G_rx - 10 * log10(T_sys)
+
+    This is the single number that characterises a receiving station, because the
+    ledger only ever uses gain and noise together: raising gain 1 dB and doubling
+    T_sys 3 dB are equivalent trades. Operators publish G/T directly, which is why
+    Scenario allows it to override the dish-and-noise calculation.
+
+    Args:
+        g_rx_dbi: receive antenna boresight gain [dBi]. Scalar or NumPy array.
+        t_sys_k:  system noise temperature [K], from :func:`system_noise_temp_k`.
+                  Scalar or NumPy array. Must be positive.
+    Returns:
+        figure of merit [dB/K].
+    Reference:
+        g_over_t_db_per_k(34.58, 150.09) ≈ 12.82 dB/K
+    """
+    return np.subtract(g_rx_dbi, db(t_sys_k))             # gain and noise always travel together

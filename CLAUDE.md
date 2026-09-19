@@ -219,7 +219,7 @@ def slant_range_km(altitude_km, elevation_deg):
 - [x] 0 · scaffold: layout, .gitignore, requirements, README skeleton, venv, git init, GitHub repo
 - [x] 1 · constants + dB helpers + tests
 - [x] 2 · slant range, wavelength, FSPL + tests
-- [ ] 3 · dish gain, noise temperatures, G/T + tests
+- [x] 3 · dish gain, noise temperatures, G/T + tests
 - [ ] 4 · EIRP, C/N₀, Eb/N₀, Es/N₀ conversions, margin, max-rate solver + tests
 - [ ] 5 · Scenario dataclass, YAML loader, s_band_ttc.yaml + tests
 - [ ] 6 · compute_ledger + run.py table + end-to-end test
