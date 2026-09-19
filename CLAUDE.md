@@ -27,7 +27,7 @@ Purpose: a portfolio project demonstrating RF link analysis in Python for an aer
 ```
 leo-link-budget/
 ├── CLAUDE.md                # this file
-├── README.md                # front page: what, example plot, how to run, method, assumptions, validation, roadmap, references
+├── README.md                # front page: what, how to run, example plot, method, assumptions, validation, roadmap, references
 ├── requirements.txt         # numpy, matplotlib, pyyaml, pytest
 ├── .gitignore               # __pycache__/, *.pyc, .venv/, venv/, .pytest_cache/, .env, plots/
 ├── link_budget.py           # physics: constants + one function per step + compute_ledger()
@@ -62,7 +62,8 @@ leo-link-budget/
 ```
 # one-time setup
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+.venv\Scripts\activate             # Windows
+source .venv/bin/activate          # macOS / Linux
 pip install -r requirements.txt
 
 # every session
@@ -229,5 +230,5 @@ def slant_range_km(altitude_km, elevation_deg):
 - [x] 7 · sweeps (elevation, bit rate, max-rate-vs-elevation) + plots + CLI flags + example PNG in README
 - [x] 8 · x_band_payload.yaml + --compare
 - [x] 9 · validation against a published reference + docs/validation.md + pinning test
-- [ ] 10 · README complete
+- [x] 10 · README complete
 - [ ] later · elevation-dependent atmospheric loss · ITU-R P.618 rain · antenna pattern vs off-boresight · feed loss ahead of LNA · Doppler · bandwidth limits · interference
