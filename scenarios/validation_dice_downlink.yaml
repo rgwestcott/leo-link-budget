@@ -1,0 +1,27 @@
+name: DICE downlink (Baktur, IEEE Antennas Propag. Mag. 64(6), Dec 2022, Table 3, DOI 10.1109/MAP.2022.3201250)
+# Geometry
+# The reference states a path length of 1944 km directly. This schema derives slant
+# range from altitude and elevation, so 450 km (DICE perigee) at 5 deg is used: it
+# gives 1943.68 km, which differs from the reference path loss by 0.0015 dB.
+altitude_km: 450.0
+elevation_deg: 5.0
+# Transmitter (spacecraft)
+freq_mhz: 465.0          # reference: 0.465 GHz downlink
+p_tx_dbw: 0.0            # 1 W
+g_tx_dbi: -3.5           # spacecraft dipole, downlink column
+l_tx_db: 0.5             # total TX loss 0.5 + TX pointing loss 0
+# Path
+other_losses_db: 1.5     # atmospheric 0.5 + polarization 1.0
+# Receiver (ground station)
+rx_dish_diameter_m: 3.0  # unused: the reference publishes G/T, see below
+rx_efficiency: 0.6       # unused: the reference publishes G/T, see below
+t_ant_k: 200.0           # reference antenna temperature, downlink column
+lna_nf_db: 3.08          # reference LNA noise figure
+g_over_t_db_per_k: 9.03  # published: effective gain 36.02 dB over T_sys 500 K
+# Data and modem
+bit_rate_bps: 1.5e6
+bits_per_symbol: 2       # QPSK
+code_rate: 1.0           # uncoded
+required_ebn0_db: 9.6    # reference Eb/N0 threshold, QPSK at BER 1e-5
+implementation_loss_db: 2.0
+target_margin_db: 3.0
