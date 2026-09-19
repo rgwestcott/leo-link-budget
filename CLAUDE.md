@@ -217,7 +217,7 @@ def slant_range_km(altitude_km, elevation_deg):
 ## Roadmap (tick in the same commit that completes the step)
 
 - [x] 0 · scaffold: layout, .gitignore, requirements, README skeleton, venv, git init, GitHub repo
-- [ ] 1 · constants + dB helpers + tests
+- [x] 1 · constants + dB helpers + tests
 - [ ] 2 · slant range, wavelength, FSPL + tests
 - [ ] 3 · dish gain, noise temperatures, G/T + tests
 - [ ] 4 · EIRP, C/N₀, Eb/N₀, Es/N₀ conversions, margin, max-rate solver + tests
