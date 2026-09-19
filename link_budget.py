@@ -509,3 +509,103 @@ def max_bit_rate_bps(cn0_dbhz, required_ebn0_db, implementation_loss_db,
     spare_cn0_dbhz = (cn0_dbhz - required_ebn0_db
                       - implementation_loss_db - target_margin_db)
     return lin(spare_cn0_dbhz)                            # spare dB-Hz -> bit/s
+
+
+# ---------------------------------------------------------------------------
+# The ledger
+# ---------------------------------------------------------------------------
+
+# The ledger's keys, in the order the spec fixes. Kept as a module-level tuple so
+# run.py, the sweeps and the tests can all check the contract without restating it.
+LEDGER_KEYS = (
+    "p_tx_dbw", "g_tx_dbi", "l_tx_db", "eirp_dbw",
+    "slant_range_km", "fspl_db", "other_losses_db",
+    "g_rx_dbi", "t_sys_k", "g_over_t_db_per_k", "minus_10log_k_dbw_per_k_hz",
+    "cn0_dbhz",
+    "bit_rate_bps", "ten_log_bit_rate_db", "ebn0_db",
+    "ebn0_required_total_db",
+    "margin_db",
+    "max_bit_rate_bps_at_target_margin",
+)
+
+
+def compute_ledger(scenario):
+    """Run the whole link budget for one scenario and return it as an ordered ledger.
+
+    Walks the chain in the order an engineer would check it by hand: transmit
+    terms into EIRP, geometry into path loss, receive terms into G/T, those into
+    C/N_0, then the modem terms into Eb/N_0 and margin. Every intermediate the
+    spec names gets its own entry, including the two that are pure bookkeeping --
+    the Boltzmann term and 10*log10(R_b) -- so the printed table can be audited
+    line by line against a hand calculation rather than only at its endpoints.
+
+    The station's figure of merit has two routes. If the scenario supplies
+    g_over_t_db_per_k (an operator publishes it), that value is used as given and
+    the dish and noise entries are reported as None, because a published G/T does
+    not decompose into a gain and a temperature that this tool can claim to know.
+    Otherwise G/T is computed from the dish diameter, efficiency and the antenna
+    and LNA noise temperatures, and all three entries are filled in.
+
+    Values are returned at full precision; rounding for display belongs to run.py.
+
+    Args:
+        scenario: any object carrying the Scenario fields -- see scenario.py.
+    Returns:
+        dict with exactly the keys in LEDGER_KEYS, in that order. Units are in
+        the key names. g_rx_dbi and t_sys_k are None when a published G/T was used.
+    Reference:
+        The s_band_ttc scenario gives cn0_dbhz 77.5, ebn0_db 14.5, margin_db 11.5.
+    """
+    # -- transmit side -------------------------------------------------------
+    eirp = eirp_dbw(scenario.p_tx_dbw, scenario.g_tx_dbi, scenario.l_tx_db)
+
+    # -- geometry and path ---------------------------------------------------
+    range_km = slant_range_km(scenario.altitude_km, scenario.elevation_deg)
+    path_loss_db = fspl_db(range_km, scenario.freq_mhz)
+
+    # -- receive side --------------------------------------------------------
+    if scenario.g_over_t_db_per_k is not None:
+        g_rx_dbi = None                                   # not knowable from a published G/T
+        t_sys_k = None
+        g_t_db_per_k = scenario.g_over_t_db_per_k
+    else:
+        g_rx_dbi = dish_gain_dbi(scenario.rx_dish_diameter_m, scenario.freq_mhz,
+                                 scenario.rx_efficiency)
+        t_sys_k = system_noise_temp_k(scenario.t_ant_k,
+                                      receiver_noise_temp_k(scenario.lna_nf_db))
+        g_t_db_per_k = g_over_t_db_per_k(g_rx_dbi, t_sys_k)
+
+    # -- carrier to noise density -------------------------------------------
+    cn0 = cn0_dbhz(eirp, path_loss_db, scenario.other_losses_db, g_t_db_per_k)
+
+    # -- modem terms ---------------------------------------------------------
+    ten_log_bit_rate_db = db(scenario.bit_rate_bps)       # the rate term, shown separately
+    ebn0 = ebn0_db(cn0, scenario.bit_rate_bps)
+    ebn0_required_total_db = scenario.required_ebn0_db + scenario.implementation_loss_db
+    margin = margin_db(ebn0, scenario.required_ebn0_db, scenario.implementation_loss_db)
+    max_rate_bps = max_bit_rate_bps(cn0, scenario.required_ebn0_db,
+                                    scenario.implementation_loss_db,
+                                    scenario.target_margin_db)
+
+    return {
+        "p_tx_dbw": scenario.p_tx_dbw,
+        "g_tx_dbi": scenario.g_tx_dbi,
+        "l_tx_db": scenario.l_tx_db,
+        "eirp_dbw": eirp,
+        "slant_range_km": range_km,
+        "fspl_db": path_loss_db,
+        "other_losses_db": scenario.other_losses_db,
+        "g_rx_dbi": g_rx_dbi,
+        "t_sys_k": t_sys_k,
+        "g_over_t_db_per_k": g_t_db_per_k,
+        # Negated so the table reads as an addition, matching how the term enters
+        # the C/N_0 equation. Still sourced from the computed constant.
+        "minus_10log_k_dbw_per_k_hz": -BOLTZMANN_DBW_PER_K_HZ,
+        "cn0_dbhz": cn0,
+        "bit_rate_bps": scenario.bit_rate_bps,
+        "ten_log_bit_rate_db": ten_log_bit_rate_db,
+        "ebn0_db": ebn0,
+        "ebn0_required_total_db": ebn0_required_total_db,
+        "margin_db": margin,
+        "max_bit_rate_bps_at_target_margin": max_rate_bps,
+    }
