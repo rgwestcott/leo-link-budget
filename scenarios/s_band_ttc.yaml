@@ -1,0 +1,24 @@
+name: S-band TT&C downlink, 500 km, 10 deg elevation
+# Geometry
+altitude_km: 500.0
+elevation_deg: 10.0
+# Transmitter (satellite)
+freq_mhz: 2200.0
+p_tx_dbw: 0.0            # 1 W
+g_tx_dbi: 3.0            # low-gain TT&C patch
+l_tx_db: 1.0             # cable, connectors, filter, pointing
+# Path
+other_losses_db: 2.0     # atmosphere 0.5 + polarization 0.5 + pointing 0.5 + misc 0.5
+# Receiver (ground station)
+rx_dish_diameter_m: 3.0
+rx_efficiency: 0.6
+t_ant_k: 75.0
+lna_nf_db: 1.0
+g_over_t_db_per_k: null  # if set, overrides the dish/noise calculation (use when the operator publishes G/T)
+# Data and modem
+bit_rate_bps: 2.0e6
+bits_per_symbol: 2       # QPSK
+code_rate: 0.5
+required_ebn0_db: 1.5    # rate-1/2 LDPC, BER 1e-5, per information bit
+implementation_loss_db: 1.5
+target_margin_db: 3.0
