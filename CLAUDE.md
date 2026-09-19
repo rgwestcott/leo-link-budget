@@ -51,7 +51,8 @@ leo-link-budget/
     ├── test_link_equations.py
     ├── test_scenario.py
     ├── test_worked_example.py
-    └── test_sweeps.py
+    ├── test_sweeps.py
+    └── test_plots.py
 ```
 
 ## Commands
