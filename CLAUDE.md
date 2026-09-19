@@ -220,7 +220,7 @@ def slant_range_km(altitude_km, elevation_deg):
 - [x] 1 · constants + dB helpers + tests
 - [x] 2 · slant range, wavelength, FSPL + tests
 - [x] 3 · dish gain, noise temperatures, G/T + tests
-- [ ] 4 · EIRP, C/N₀, Eb/N₀, Es/N₀ conversions, margin, max-rate solver + tests
+- [x] 4 · EIRP, C/N₀, Eb/N₀, Es/N₀ conversions, margin, max-rate solver + tests
 - [ ] 5 · Scenario dataclass, YAML loader, s_band_ttc.yaml + tests
 - [ ] 6 · compute_ledger + run.py table + end-to-end test
 - [ ] 7 · sweeps (elevation, bit rate, max-rate-vs-elevation) + plots + CLI flags + example PNG in README

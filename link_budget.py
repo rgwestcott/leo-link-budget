@@ -309,3 +309,203 @@ def g_over_t_db_per_k(g_rx_dbi, t_sys_k):
         g_over_t_db_per_k(34.58, 150.09) ≈ 12.82 dB/K
     """
     return np.subtract(g_rx_dbi, db(t_sys_k))             # gain and noise always travel together
+
+
+# ---------------------------------------------------------------------------
+# Transmit side
+# ---------------------------------------------------------------------------
+def eirp_dbw(p_tx_dbw, g_tx_dbi, l_tx_db):
+    """Effective isotropic radiated power.
+
+        EIRP = P_tx + G_tx - L_tx
+
+    The power an isotropic radiator would need in order to put the same flux on
+    boresight as this transmitter and antenna do. Collapsing the whole transmit
+    chain into one number is what lets the ledger treat everything upstream of
+    the antenna as a single term.
+
+    Args:
+        p_tx_dbw: transmitter output power [dBW].
+        g_tx_dbi: transmit antenna boresight gain [dBi].
+        l_tx_db:  losses between transmitter and antenna [dB, positive] --
+                  cable, connectors, filter and transmit pointing error.
+                  Any argument may be a NumPy array.
+    Returns:
+        effective isotropic radiated power [dBW].
+    Reference:
+        eirp_dbw(0.0, 3.0, 1.0) = 2.0 dBW
+    """
+    return np.subtract(np.add(p_tx_dbw, g_tx_dbi), l_tx_db)   # losses quoted positive
+
+
+# ---------------------------------------------------------------------------
+# Carrier-to-noise density
+# ---------------------------------------------------------------------------
+def cn0_dbhz(eirp_dbw, fspl_db, other_losses_db, g_over_t_db_per_k):
+    """Carrier power to noise power spectral density ratio.
+
+        C/N_0 = EIRP - FSPL - L_other + G/T - 10*log10(k)
+
+    C/N_0 is used rather than C/N because dividing by the noise density instead
+    of the noise power takes bandwidth out of the expression entirely, and
+    bandwidth is not known until a modem, symbol rate and filter roll-off have
+    been chosen -- which happens long after the RF chain is fixed. C/N_0 is
+    therefore the last quantity that belongs purely to the link, and every
+    modem-dependent figure (Eb/N_0, Es/N_0, margin) is derived from it
+    afterwards.
+
+    The final term is a subtraction of a negative number, so it adds roughly
+    228.6 dB. It is taken from BOLTZMANN_DBW_PER_K_HZ, which is computed from k;
+    no rounded constant appears here.
+
+    Args:
+        eirp_dbw:          effective isotropic radiated power [dBW].
+        fspl_db:           free-space path loss [dB, positive].
+        other_losses_db:   atmosphere, rain, polarization, pointing, misc
+                           [dB, positive].
+        g_over_t_db_per_k: receive station figure of merit [dB/K].
+                           Any argument may be a NumPy array.
+    Returns:
+        carrier-to-noise-density ratio [dB-Hz].
+    Reference:
+        cn0_dbhz(2.0, 163.88, 2.0, 12.82) is about 77.54 dB-Hz
+    """
+    c_over_t_db = (np.subtract(np.subtract(eirp_dbw, fspl_db), other_losses_db)
+                   + g_over_t_db_per_k)                   # C/T at the receiver
+    return c_over_t_db - BOLTZMANN_DBW_PER_K_HZ           # C/T -> C/N_0, via -(-228.599)
+
+
+# ---------------------------------------------------------------------------
+# Energy per bit
+# ---------------------------------------------------------------------------
+def ebn0_db(cn0_dbhz, bit_rate_bps):
+    """Energy per bit to noise density ratio.
+
+        Eb/N_0 = C/N_0 - 10*log10(R_b)
+
+    Spreading the carrier power across more bits per second leaves less energy in
+    each one, so every doubling of rate costs 3.01 dB.
+
+    bit_rate_bps is INFORMATION bits per second -- the useful payload rate,
+    before any forward-error-correction overhead or channel coding is applied.
+    The required Eb/N_0 compared against this must therefore also be quoted per
+    information bit; a figure quoted per channel bit differs by 10*log10(code
+    rate), which is 3 dB at rate 1/2 and would silently swing the margin by that
+    much in whichever direction the mismatch runs.
+
+    Args:
+        cn0_dbhz:     carrier-to-noise-density ratio [dB-Hz].
+        bit_rate_bps: information bit rate [bit/s]. Must be positive.
+                      Either argument may be a NumPy array.
+    Returns:
+        energy per information bit over noise density [dB].
+    Reference:
+        ebn0_db(77.54, 2.0e6) is about 14.53 dB
+    """
+    return np.subtract(cn0_dbhz, db(bit_rate_bps))        # 10*log10(R_b), power-style
+
+
+# ---------------------------------------------------------------------------
+# Symbol energy conversions
+# ---------------------------------------------------------------------------
+def esn0_from_ebn0_db(ebn0_db, bits_per_symbol, code_rate):
+    """Convert energy per information bit to energy per transmitted symbol.
+
+        Es/N_0 = Eb/N_0 + 10*log10(m * r)
+
+    Each symbol carries m channel bits, of which a fraction r is information, so
+    a symbol carries m*r information bits' worth of energy. Modem datasheets and
+    standards tables (DVB-S2 in particular) quote required Es/N_0, while the
+    ledger works in Eb/N_0; this is the bridge between them.
+
+    Args:
+        ebn0_db:         energy per information bit over noise density [dB].
+        bits_per_symbol: m, channel bits per modulation symbol [dimensionless]
+                         -- 1 for BPSK, 2 for QPSK, 3 for 8PSK.
+        code_rate:       r, information bits per channel bit [dimensionless, 0..1].
+                         Any argument may be a NumPy array.
+    Returns:
+        energy per symbol over noise density [dB].
+    Reference:
+        esn0_from_ebn0_db(1.0, 2, 0.5) = 1.0 dB;
+        esn0_from_ebn0_db(2.27, 2, 0.75) is about 4.03 dB
+    """
+    return np.add(ebn0_db, db(np.multiply(bits_per_symbol, code_rate)))
+
+
+def ebn0_from_esn0_db(esn0_db, bits_per_symbol, code_rate):
+    """Convert energy per symbol back to energy per information bit.
+
+        Eb/N_0 = Es/N_0 - 10*log10(m * r)
+
+    Exact inverse of esn0_from_ebn0_db; use it to bring a required Es/N_0 from a
+    standards table into the ledger's per-information-bit convention.
+
+    Args:
+        esn0_db:         energy per symbol over noise density [dB].
+        bits_per_symbol: m, channel bits per modulation symbol [dimensionless].
+        code_rate:       r, information bits per channel bit [dimensionless, 0..1].
+                         Any argument may be a NumPy array.
+    Returns:
+        energy per information bit over noise density [dB].
+    Reference:
+        ebn0_from_esn0_db(4.03, 2, 0.75) is about 2.27 dB; round-trips within 1e-9
+    """
+    return np.subtract(esn0_db, db(np.multiply(bits_per_symbol, code_rate)))
+
+
+# ---------------------------------------------------------------------------
+# Margin and maximum rate
+# ---------------------------------------------------------------------------
+def margin_db(ebn0_db, required_ebn0_db, implementation_loss_db):
+    """Link margin: how much worse the link may get before it stops closing.
+
+        Margin = Eb/N_0 - (Eb/N_0_required + L_impl)
+
+    The implementation loss is added to the requirement rather than subtracted
+    from the achieved value; the arithmetic is identical, but it keeps the
+    theoretical threshold and the hardware's shortfall against it as two
+    separately auditable numbers. A positive margin means the link closes.
+
+    Args:
+        ebn0_db:                achieved energy per information bit over noise
+                                density [dB].
+        required_ebn0_db:       theoretical threshold for the chosen modulation,
+                                coding and target BER [dB, per information bit].
+        implementation_loss_db: modem shortfall against theory [dB, positive].
+                                Any argument may be a NumPy array.
+    Returns:
+        link margin [dB]. Positive closes, negative does not.
+    Reference:
+        margin_db(14.53, 1.5, 1.5) = 11.53 dB
+    """
+    required_total_db = np.add(required_ebn0_db, implementation_loss_db)
+    return np.subtract(ebn0_db, required_total_db)
+
+
+def max_bit_rate_bps(cn0_dbhz, required_ebn0_db, implementation_loss_db,
+                     target_margin_db=3.0):
+    """Highest information bit rate that still leaves a target margin.
+
+        R_max = 10^[(C/N_0 - Eb/N_0_required - L_impl - M_target) / 10]
+
+    Solves the Eb/N_0 chain for rate instead of evaluating it at a fixed rate:
+    whatever C/N_0 is left once the requirement, the implementation loss and the
+    desired margin have been paid for is spent on bits per second. This is the
+    quantity that answers how much data a pass can return, and it scales linearly
+    in power -- every extra 3.01 dB of C/N_0 doubles it.
+
+    Args:
+        cn0_dbhz:               carrier-to-noise-density ratio [dB-Hz].
+        required_ebn0_db:       threshold Eb/N_0 [dB, per information bit].
+        implementation_loss_db: modem shortfall against theory [dB, positive].
+        target_margin_db:       margin to hold in reserve [dB]; 3.0 by default.
+                                Any argument may be a NumPy array.
+    Returns:
+        maximum information bit rate [bit/s].
+    Reference:
+        max_bit_rate_bps(77.54, 1.5, 1.5, 3.0) is about 1.43e7 bit/s
+    """
+    spare_cn0_dbhz = (cn0_dbhz - required_ebn0_db
+                      - implementation_loss_db - target_margin_db)
+    return lin(spare_cn0_dbhz)                            # spare dB-Hz -> bit/s
