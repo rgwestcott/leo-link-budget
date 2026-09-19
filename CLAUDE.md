@@ -223,7 +223,7 @@ def slant_range_km(altitude_km, elevation_deg):
 - [x] 4 · EIRP, C/N₀, Eb/N₀, Es/N₀ conversions, margin, max-rate solver + tests
 - [x] 5 · Scenario dataclass, YAML loader, s_band_ttc.yaml + tests
 - [x] 6 · compute_ledger + run.py table + end-to-end test
-- [ ] 7 · sweeps (elevation, bit rate, max-rate-vs-elevation) + plots + CLI flags + example PNG in README
+- [x] 7 · sweeps (elevation, bit rate, max-rate-vs-elevation) + plots + CLI flags + example PNG in README
 - [ ] 8 · x_band_payload.yaml + --compare
 - [ ] 9 · validation against a published reference + docs/validation.md + pinning test
 - [ ] 10 · README complete
