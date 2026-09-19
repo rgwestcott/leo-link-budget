@@ -111,3 +111,92 @@ def dbm_from_dbw(p_dbw):
     """
     dbw_to_dbm_offset_db = 30.0                           # 10*log10(1 W / 1 mW)
     return np.add(p_dbw, dbw_to_dbm_offset_db)            # np.add keeps arrays working
+
+
+# ---------------------------------------------------------------------------
+# Wavelength
+# ---------------------------------------------------------------------------
+def wavelength_m(freq_mhz):
+    """Free-space wavelength of a radio frequency.
+
+        lambda = c / f
+
+    The 1e6 converts the MHz argument to hertz. Frequency is in MHz everywhere in
+    this project and never in GHz, so the conversion lives here rather than at
+    each call site.
+
+    Args:
+        freq_mhz: carrier frequency [MHz]. Scalar or NumPy array. Must be positive.
+    Returns:
+        wavelength [m]. NumPy scalar or array.
+    Reference:
+        wavelength_m(2200) ≈ 0.13627 m  (S-band TT&C downlink)
+    """
+    freq_hz = np.multiply(freq_mhz, 1.0e6)                # MHz -> Hz
+    return C_M_PER_S / freq_hz
+
+
+# ---------------------------------------------------------------------------
+# Geometry
+# ---------------------------------------------------------------------------
+def slant_range_km(altitude_km, elevation_deg):
+    """Straight-line distance from ground station to satellite.
+
+    Law of cosines on the Earth-center / ground-station / satellite triangle;
+    the angle at the ground station is 90° + elevation:
+
+        d = sqrt((R_E + h)^2 - (R_E * cos(eps))^2) - R_E * sin(eps)
+
+    Slant range grows sharply as the satellite drops toward the horizon: the
+    same 500 km orbit is 500 km away overhead but over 2000 km away at 5°,
+    which is what drives the elevation sweep in sweeps.py.
+
+    Args:
+        altitude_km:   orbit altitude above mean Earth surface [km]
+        elevation_deg: satellite elevation above local horizon [deg]
+                       (0 = horizon, 90 = directly overhead)
+                       Either argument may be a NumPy array.
+    Returns:
+        slant range [km]. Equals altitude_km at 90° elevation.
+    Reference:
+        slant_range_km(500, 10) ≈ 1694.6 km
+    """
+    eps = np.radians(elevation_deg)                       # trig wants radians
+    r_sat = EARTH_RADIUS_KM + altitude_km                 # orbit radius from Earth center
+    return (np.sqrt(r_sat**2 - (EARTH_RADIUS_KM * np.cos(eps))**2)
+            - EARTH_RADIUS_KM * np.sin(eps))
+
+
+# ---------------------------------------------------------------------------
+# Path loss
+# ---------------------------------------------------------------------------
+def fspl_db(distance_km, freq_mhz):
+    """Free-space path loss over a slant range, in the physical form.
+
+        FSPL = 20 * log10(4 * pi * d / lambda)      with d in metres
+
+    This is spreading loss only: the 1/(4*pi*d^2) dilution of power over a sphere,
+    expressed relative to the wavelength-sized effective aperture of an isotropic
+    receiver. It excludes atmosphere, rain, polarization and pointing, which enter
+    the ledger separately as other_losses_db.
+
+    The familiar engineering shortcut
+
+        FSPL ≈ 20*log10(d_km) + 20*log10(f_MHz) + 32.45
+
+    is the same expression with the unit conversions folded into the constant
+    32.45. It is quoted here as a cross-check only; this function implements the
+    physical form above, so nothing depends on a rounded constant.
+
+    Args:
+        distance_km: slant range from ground station to satellite [km].
+                     Scalar or NumPy array. Must be positive.
+        freq_mhz:    carrier frequency [MHz]. Scalar or NumPy array.
+    Returns:
+        free-space path loss [dB], a positive number to be subtracted in the ledger.
+    Reference:
+        fspl_db(1694.6, 2200) ≈ 163.88 dB
+    """
+    distance_m = np.multiply(distance_km, 1000.0)         # km -> m, to match lambda
+    lambda_m = wavelength_m(freq_mhz)                     # never a hardcoded constant
+    return 20.0 * np.log10(4.0 * np.pi * distance_m / lambda_m)
