@@ -72,20 +72,15 @@ def test_db_accepts_arrays():
 
 # ---------------------------------------------------------------------------
 # lin()
-#
-# NOTE: CLAUDE.md's table gives the reference value "lin(10) = 100 (+/-1e-9)",
-# which contradicts the formula on the same row: 10^(10/10) = 10, not 100.
-# The formula is implemented as written and pinned here; the disputed reference
-# value is deliberately NOT asserted, pending a correction to CLAUDE.md.
 # ---------------------------------------------------------------------------
-def test_lin_of_twenty_is_one_hundred():
-    """10^(20/10) = 100. This is the input that actually yields the spec's 100."""
-    assert lb.lin(20) == pytest.approx(100.0, abs=1e-9)
-
-
 def test_lin_of_ten_is_ten():
-    """10^(10/10) = 10, per the formula on the spec row."""
+    """Spec reference: lin(10) = 10 (+/-1e-9)."""
     assert lb.lin(10) == pytest.approx(10.0, abs=1e-9)
+
+
+def test_lin_of_twenty_is_one_hundred():
+    """A second decade: 10^(20/10) = 100."""
+    assert lb.lin(20) == pytest.approx(100.0, abs=1e-9)
 
 
 def test_lin_of_zero_is_one():
@@ -93,7 +88,7 @@ def test_lin_of_zero_is_one():
 
 
 def test_lin_inverts_db():
-    """lin and db must round-trip; this is what forces lin(10) == 10."""
+    """lin and db must round-trip; this is what fixes lin(10) at 10."""
     for value in (0.5, 1.0, 2.0, 10.0, 1234.5):
         assert lb.lin(lb.db(value)) == pytest.approx(value, rel=1e-12)
 

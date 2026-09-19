@@ -86,7 +86,7 @@ python run.py scenarios/s_band_ttc.yaml --compare scenarios/x_band_payload.yaml
 | Function | Formula | Reference value (tolerance) |
 |---|---|---|
 | `db(x)` | 10·log₁₀(x) | db(2) = 3.0103 (±0.001) |
-| `lin(x_db)` | 10^(x_db/10) | lin(10) = 100 (±1e-9) |
+| `lin(x_db)` | 10^(x_db/10) | lin(10) = 10 (±1e-9) |
 | `dbw_from_w(p_w)` | 10·log₁₀(p_w / 1 W) | dbw_from_w(1) = 0; dbw_from_w(2) = 3.01 |
 | `dbm_from_dbw(p_dbw)` | p_dbw + 30 | dbm_from_dbw(0) = 30 |
 | `wavelength_m(freq_mhz)` | λ = c / (f·10⁶) | wavelength_m(2200) = 0.13627 (±1e-4) |

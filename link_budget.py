@@ -68,7 +68,7 @@ def lin(x_db):
     Returns:
         the equivalent linear power ratio [dimensionless]. NumPy scalar or array.
     Reference:
-        lin(10) = 100.0
+        lin(10) = 10.0
     """
     return np.power(10.0, np.divide(x_db, 10.0))          # np.power keeps arrays working
 
